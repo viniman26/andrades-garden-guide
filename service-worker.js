@@ -4,10 +4,7 @@ const STATIC_ASSETS = [
   "./index.html",
   "./manifest.json",
   "./src/styles.css",
-  "./src/app.js",
-  "./src/services/db.js",
-  "./src/services/gemini.js",
-  "./src/data/mockPlants.js",
+  "./src/app.bundle.js",
   "./assets/logo.png",
   "./assets/wallpaper.png",
   "./assets/concept.png"

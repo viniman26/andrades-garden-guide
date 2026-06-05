@@ -379,7 +379,8 @@ const state = {
   isAnalyzing: false,
   isTestingApi: false,
   apiTestMessage: "",
-  toast: ""
+  toast: "",
+  searchQuery: ""
 };
 
 const tabs = [
@@ -455,7 +456,7 @@ function renderActiveTab() {
 }
 
 function renderHome() {
-  const waterToday = state.plants.filter((plant) => daysSince(plant.lastWateredAt) >= 5).length;
+  const waterToday = state.plants.filter((plant) => daysSince(plant.lastWateredAt) >= getWateringInterval(plant)).length;
   return `
     <section class="hero-panel">
       <p class="hello">Bom dia, Vinia</p>
@@ -486,6 +487,14 @@ function renderHome() {
 }
 
 function renderCollection() {
+  const query = (state.searchQuery || "").toLowerCase().trim();
+  const filteredPlants = state.plants.filter((plant) => {
+    if (!query) return true;
+    const popular = (plant.gemini?.identificacao_basica?.nome_popular || "").toLowerCase();
+    const scientific = (plant.gemini?.identificacao_basica?.nome_cientifico || "").toLowerCase();
+    return popular.includes(query) || scientific.includes(query);
+  });
+
   return `
     <section class="section-title">
       <div>
@@ -494,9 +503,12 @@ function renderCollection() {
       </div>
       <button class="primary-small" data-tab="identify">Nova</button>
     </section>
-    <div class="search-box">${searchIcon()}<span>Buscar planta...</span></div>
+    <div class="search-box">
+      ${searchIcon()}
+      <input type="text" id="searchPlants" placeholder="Buscar planta..." value="${escapeHtml(state.searchQuery || '')}" />
+    </div>
     <div class="plant-grid">
-      ${state.plants.map(renderPlantCard).join("")}
+      ${filteredPlants.map(renderPlantCard).join("")}
     </div>
   `;
 }
@@ -526,6 +538,10 @@ function renderIdentify() {
         }
       </label>
 
+      ${state.uploadPreview && !state.isAnalyzing ? `
+        <button class="ghost-button danger" id="clearUploadButton" type="button" style="margin-bottom: 14px;">Remover foto</button>
+      ` : ""}
+
       <button class="primary-button" id="analyzeButton" ${state.apiKey && state.uploadPreview && !state.isAnalyzing ? "" : "disabled"}>
         ${state.isAnalyzing ? "Analisando folhas..." : "Analisar e salvar planta"}
       </button>
@@ -535,11 +551,15 @@ function renderIdentify() {
 }
 
 function renderCare() {
-  const tasks = state.plants.map((plant) => ({
-    plant,
-    days: daysSince(plant.lastWateredAt),
-    due: daysSince(plant.lastWateredAt) >= 5
-  }));
+  const tasks = state.plants.map((plant) => {
+    const interval = getWateringInterval(plant);
+    const days = daysSince(plant.lastWateredAt);
+    return {
+      plant,
+      days,
+      due: days >= interval
+    };
+  });
 
   return `
     <section class="section-title">
@@ -556,9 +576,12 @@ function renderCare() {
             <div class="care-icon ${due ? "due" : ""}">${dropIcon()}</div>
             <div>
               <strong>${nameOf(plant)}</strong>
-              <span>${due ? "Regar hoje" : `Regada ha ${days} dias`}</span>
+              <span>${days === 0 ? "Regada hoje" : due ? "Regar hoje" : `Regada ha ${days} dias`}</span>
             </div>
-            <button class="secondary-button" data-water="${plant.id}">Regar</button>
+            ${days === 0
+              ? `<button class="secondary-button" disabled>Regada</button>`
+              : `<button class="secondary-button" data-water="${plant.id}">Regar</button>`
+            }
           </article>
         `
         )
@@ -672,6 +695,7 @@ function renderDetailsModal(plant) {
           <div class="badge-row">
             <span>${health.status_saude_atual || "Acompanhamento pendente"}</span>
             ${care.toxicidade_pets ? "<span>Toxica para pets</span>" : "<span>Pet friendly</span>"}
+            <span>Ultima rega: ${daysSince(plant.lastWateredAt) === 0 ? "Hoje" : daysSince(plant.lastWateredAt) === 1 ? "Ontem" : `ha ${daysSince(plant.lastWateredAt)} dias`}</span>
           </div>
           <div class="detail-metrics">
             <article>${dropIcon()}<strong>${care.frequencia_rega_verao || "Rega moderada"}</strong><span>Rega</span></article>
@@ -757,6 +781,57 @@ function bindEvents() {
     state.plants = await listPlants();
     showToast("Notas salvas.");
   });
+
+  // Search logic
+  const searchInput = document.querySelector("#searchPlants");
+  if (searchInput) {
+    searchInput.addEventListener("input", (event) => {
+      state.searchQuery = event.target.value;
+      const grid = document.querySelector(".plant-grid");
+      if (grid) {
+        const query = state.searchQuery.toLowerCase().trim();
+        const filtered = state.plants.filter((plant) => {
+          if (!query) return true;
+          const popular = (plant.gemini?.identificacao_basica?.nome_popular || "").toLowerCase();
+          const scientific = (plant.gemini?.identificacao_basica?.nome_cientifico || "").toLowerCase();
+          return popular.includes(query) || scientific.includes(query);
+        });
+        grid.innerHTML = filtered.map(renderPlantCard).join("");
+        // Re-bind open details modal clicks
+        grid.querySelectorAll("[data-open]").forEach((card) => {
+          card.addEventListener("click", () => {
+            state.selectedPlantId = card.dataset.open;
+            render();
+          });
+        });
+      }
+    });
+  }
+
+  // Backdrop click modal close logic
+  document.querySelector(".modal-backdrop")?.addEventListener("click", (event) => {
+    if (event.target === event.currentTarget) {
+      state.selectedPlantId = "";
+      render();
+    }
+  });
+
+  // Clear upload logic
+  document.querySelector("#clearUploadButton")?.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    state.uploadPreview = "";
+    state.uploadMime = "";
+    render();
+  });
+
+  // Settings drafts and instant sync
+  document.querySelector("#geminiApiKey")?.addEventListener("input", (event) => {
+    state.settingsDraftApiKey = event.target.value;
+  });
+  document.querySelector("#geminiModel")?.addEventListener("change", (event) => {
+    state.settingsDraftModel = event.target.value;
+  });
 }
 
 async function handleUpload(event) {
@@ -803,7 +878,7 @@ async function analyzeUpload() {
     showToast("Planta identificada e salva.");
   } catch (error) {
     console.error(error);
-    showToast("Nao foi possivel analisar. Verifique a API key.");
+    showToast(error.message || "Nao foi possivel analisar. Verifique a API key.");
   } finally {
     state.isAnalyzing = false;
     render();
@@ -897,10 +972,6 @@ function labelForModel(modelId) {
   return GEMINI_MODELS.find((model) => model.id === modelId)?.label || modelId;
 }
 
-function daysSince(date) {
-  return Math.max(0, Math.floor((Date.now() - new Date(date).getTime()) / 86400000));
-}
-
 function showToast(message) {
   state.toast = message;
   render();
@@ -913,7 +984,6 @@ function showToast(message) {
 function wait(milliseconds) {
   return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 }
-
 function hideSplash() {
   if (!splash) return;
   splash.classList.add("splash-screen--hidden");
