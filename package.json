@@ -1,0 +1,10 @@
+{
+  "name": "andrades-garden-guide",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "py -m http.server 4173 --bind 127.0.0.1",
+    "build": "node scripts/validate-build.mjs"
+  }
+}

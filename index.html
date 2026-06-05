@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, minimum-scale=1, user-scalable=no"
+    />
+    <meta name="theme-color" content="#1f5a38" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Garden Guide" />
+    <meta name="format-detection" content="telephone=no" />
+    <title>Andrade's Garden Guide</title>
+    <link rel="manifest" href="./manifest.json" />
+    <link rel="apple-touch-icon" href="./assets/logo.png" />
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <div id="splash" class="splash-screen" role="status" aria-label="Carregando Andrade's Garden Guide">
+      <div class="splash-glow"></div>
+      <div class="splash-orbit splash-orbit-one"></div>
+      <div class="splash-orbit splash-orbit-two"></div>
+      <img src="./assets/logo.png" alt="Andrade's Garden Guide" class="splash-logo" />
+      <div class="splash-progress" aria-hidden="true"><span></span></div>
+    </div>
+    <div id="app" class="app-shell" aria-live="polite"></div>
+    <script type="module" src="./src/app.js"></script>
+  </body>
+</html>
