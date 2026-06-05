@@ -40,11 +40,24 @@ test.describe("Andrade's Garden Guide", () => {
 
     // Navigate to Cuidados
     await page.click('nav.bottom-nav button[aria-label="Cuidados"]');
-    await expect(page.locator('text=Rotina local baseada nas plantas cadastradas.')).toBeVisible();
+    await expect(page.locator('text=Projete a rega das suas plantas para os proximos 7 dias.')).toBeVisible();
 
     // Navigate to Ajustes (Configuracoes)
     await page.click('nav.bottom-nav button[aria-label="Ajustes"]');
     await expect(page.locator('text=Configuracoes')).toBeVisible();
+  });
+
+  test('Deve funcionar a selecao de dias no calendario de cuidados', async ({ page }) => {
+    await page.waitForSelector('#splash', { state: 'detached', timeout: 5000 });
+
+    // Navigate to Cuidados
+    await page.click('nav.bottom-nav button[aria-label="Cuidados"]');
+
+    // Click on Amanha (offset 1)
+    await page.click('button[data-day-offset="1"]');
+
+    // Verify it is active
+    await expect(page.locator('button[data-day-offset="1"]')).toHaveClass(/active/);
   });
 
   test('Deve abrir e fechar o modal de detalhes da planta', async ({ page }) => {

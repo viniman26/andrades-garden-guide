@@ -380,7 +380,8 @@ const state = {
   isTestingApi: false,
   apiTestMessage: "",
   toast: "",
-  searchQuery: ""
+  searchQuery: "",
+  selectedCareDayOffset: 0
 };
 
 const tabs = [
@@ -557,41 +558,72 @@ function renderIdentify() {
 }
 
 function renderCare() {
-  const tasks = state.plants.map((plant) => {
-    const interval = getWateringInterval(plant);
-    const days = daysSince(plant.lastWateredAt);
+  const days = getWeeklyDays();
+  
+  const daysWithTasks = days.map(day => {
+    const scheduled = getPlantsScheduledForOffset(state.plants, day.offset);
     return {
-      plant,
-      days,
-      due: days >= interval
+      ...day,
+      hasTasks: scheduled.length > 0,
+      taskCount: scheduled.length
     };
   });
+
+  const activeDayTasks = getPlantsScheduledForOffset(state.plants, state.selectedCareDayOffset);
 
   return `
     <section class="section-title">
       <div>
         <h1>Cuidados</h1>
-        <p>Rotina local baseada nas plantas cadastradas.</p>
+        <p>Projete a rega das suas plantas para os proximos 7 dias.</p>
       </div>
     </section>
+
+    <div class="calendar-week">
+      ${daysWithTasks.map(day => `
+        <button class="calendar-day-card ${state.selectedCareDayOffset === day.offset ? 'active' : ''}" data-day-offset="${day.offset}">
+          <span class="day-name">${day.name}</span>
+          <strong class="day-num">${day.dayNum}</strong>
+          ${day.hasTasks ? `<span class="calendar-dot"></span>` : ''}
+        </button>
+      `).join('')}
+    </div>
+
     <div class="care-list">
-      ${tasks
-        .map(
-          ({ plant, days, due }) => `
+      ${activeDayTasks.length > 0 ? activeDayTasks.map(plant => {
+        const interval = getWateringInterval(plant);
+        const days = daysSince(plant.lastWateredAt);
+        let statusString = "";
+        let isWateredToday = (days === 0);
+
+        if (isWateredToday) {
+          statusString = "Regada hoje";
+        } else if (state.selectedCareDayOffset === 0) {
+          statusString = days >= interval ? "Regar hoje (Atrasado)" : `Proxima rega em ${interval - days} dias`;
+        } else {
+          statusString = `Programada para este dia (Ciclo: ${interval}d)`;
+        }
+
+        return `
           <article class="care-row">
-            <div class="care-icon ${due ? "due" : ""}">${dropIcon()}</div>
+            <div class="care-icon ${isWateredToday ? "" : "due"}">${dropIcon()}</div>
             <div>
               <strong>${nameOf(plant)}</strong>
-              <span>${days === 0 ? "Regada hoje" : due ? "Regar hoje" : `Regada ha ${days} dias`}</span>
+              <span>${statusString}</span>
             </div>
-            ${days === 0
+            ${isWateredToday
               ? `<button class="secondary-button" disabled>Regada</button>`
               : `<button class="secondary-button" data-water="${plant.id}">Regar</button>`
             }
           </article>
-        `
-        )
-        .join("")}
+        `;
+      }).join('') : `
+        <div class="empty-care-card">
+          <span>🌸</span>
+          <strong>Dia livre!</strong>
+          <small style="margin-top: 4px; color: var(--muted);">Nenhum cuidado pendente. Seu jardim esta tranquilo!</small>
+        </div>
+      `}
     </div>
   `;
 }
@@ -844,6 +876,14 @@ function bindEvents() {
   document.querySelector("#geminiModel")?.addEventListener("change", (event) => {
     state.settingsDraftModel = event.target.value;
   });
+
+  // Calendar day clicks
+  document.querySelectorAll("[data-day-offset]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.selectedCareDayOffset = parseInt(button.dataset.dayOffset, 10);
+      render();
+    });
+  });
 }
 
 async function handleUpload(event) {
@@ -1009,6 +1049,47 @@ function getWateringInterval(plant) {
     return parseInt(match[1], 10);
   }
   return 7; // default to 7 days
+}
+
+function getWeeklyDays() {
+  const weekdayNames = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"];
+  const days = [];
+  const now = new Date();
+
+  for (let d = 0; d < 7; d++) {
+    const targetDate = new Date(now.getTime() + d * 24 * 60 * 60 * 1000);
+    const dayNum = targetDate.getDate();
+    let name = weekdayNames[targetDate.getDay()];
+    if (d === 0) name = "Hoje";
+    else if (d === 1) name = "Amanha";
+
+    days.push({
+      offset: d,
+      name,
+      dayNum,
+      dateString: targetDate.toDateString()
+    });
+  }
+  return days;
+}
+
+function getPlantsScheduledForOffset(plants, offset) {
+  return plants.filter((plant) => {
+    const interval = getWateringInterval(plant);
+    const days = daysSince(plant.lastWateredAt);
+
+    if (days >= interval) {
+      if (offset === 0) return true;
+      return offset % interval === 0;
+    }
+
+    const daysUntilNext = interval - days;
+    if (daysUntilNext === offset) return true;
+    if (daysUntilNext < offset) {
+      return (offset - daysUntilNext) % interval === 0;
+    }
+    return false;
+  });
 }
 function hideSplash() {
   if (!splash) return;
