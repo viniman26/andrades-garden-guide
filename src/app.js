@@ -306,6 +306,8 @@ function renderPlantCard(plant) {
   const care = plant.gemini?.cuidados_e_rotina || {};
   const season = plant.gemini?.sazonalidade_e_crescimento?.temporada_ativa_season || "Interior";
   const light = care.necessidade_luminosidade || "Luz indireta";
+  const health = plant.gemini?.diagnostico_e_saude?.status_saude_atual || "Saudavel";
+  const isToxic = care.toxicidade_pets || care.toxicidade_criancas || false;
 
   return `
     <article class="plant-card" data-open="${plant.id}">
@@ -313,6 +315,10 @@ function renderPlantCard(plant) {
       <span class="season">${season}</span>
       <h3>${info.nome_popular || "Planta salva"}</h3>
       <p>${info.nome_cientifico || "Identificacao incompleta"}</p>
+      <div class="card-badges">
+        <span class="badge-health ${health.toLowerCase().includes('saud') ? 'healthy' : 'warning'}">${health}</span>
+        ${isToxic ? '<span class="badge-alert">⚠️ Toxica</span>' : '<span class="badge-alert friendly">🐾 Seguro</span>'}
+      </div>
       <div class="card-meta">
         <span>${dropIcon()} ${care.frequencia_rega_verao || "Rega moderada"}</span>
         <span>${sunIcon()} ${light.split(" ").slice(0, 2).join(" ")}</span>

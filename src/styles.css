@@ -448,8 +448,45 @@ h2 {
 }
 
 .plant-card p {
-  margin: 0 4px 12px;
+  margin: 0 4px 6px;
   font-size: 12px;
+}
+
+.card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0 4px 8px;
+}
+
+.badge-health,
+.badge-alert {
+  padding: 3px 6px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+}
+
+.badge-health.healthy {
+  background: rgba(111, 164, 95, 0.15);
+  color: var(--green-800);
+}
+
+.badge-health.warning {
+  background: rgba(214, 166, 82, 0.15);
+  color: var(--gold);
+}
+
+.badge-alert {
+  background: rgba(156, 51, 42, 0.1);
+  color: #9c332a;
+}
+
+.badge-alert.friendly {
+  background: rgba(47, 151, 163, 0.1);
+  color: var(--water);
 }
 
 .card-meta {
