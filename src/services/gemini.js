@@ -1,4 +1,10 @@
-const GEMINI_MODEL = "gemini-3.5-flash";
+export const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
+
+export const GEMINI_MODELS = [
+  { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash (Rapido / Recomendado)" },
+  { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro (Raciocinio Avancado)" },
+  { id: "gemini-2.0-flash", label: "Gemini 2.0 Flash (Compativel)" }
+];
 
 export const GEMINI_SCHEMA_PROMPT = `
 Identifique a planta da imagem e responda exclusivamente com JSON valido.
@@ -9,14 +15,14 @@ diagnostico_e_saude, suplementos_e_manutencao, propagacao_e_extras.
 Use strings em portugues do Brasil e booleans reais para toxicidade.
 `;
 
-export async function identifyPlantWithGemini({ apiKey, imageBase64, mimeType }) {
+export async function identifyPlantWithGemini({ apiKey, imageBase64, mimeType, model = DEFAULT_GEMINI_MODEL }) {
   if (!apiKey) {
-    return mockGeminiResult();
+    throw new Error("Adicione sua API key do Gemini nas configuracoes para usar a IA.");
   }
 
   const cleanBase64 = imageBase64.split(",").pop();
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`,
+    geminiGenerateUrl(apiKey, model),
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -52,6 +58,39 @@ export async function identifyPlantWithGemini({ apiKey, imageBase64, mimeType })
   if (!rawText) throw new Error("O Gemini nao retornou um JSON valido.");
 
   return validateGeminiResult(JSON.parse(rawText));
+}
+
+export async function testGeminiApiKey({ apiKey, model = DEFAULT_GEMINI_MODEL }) {
+  if (!apiKey) {
+    throw new Error("Cole uma API key antes de testar.");
+  }
+
+  const response = await fetch(geminiGenerateUrl(apiKey, model), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: "Responda apenas: ok" }]
+        }
+      ],
+      generationConfig: {
+        temperature: 0,
+        maxOutputTokens: 8
+      }
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error("A chave nao respondeu. Verifique a API key e o modelo escolhido.");
+  }
+
+  return true;
+}
+
+function geminiGenerateUrl(apiKey, model) {
+  return `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
 }
 
 export function validateGeminiResult(result) {

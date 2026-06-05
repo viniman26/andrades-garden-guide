@@ -197,7 +197,13 @@ async function deleteSetting(key) {
 }
 
 
-const GEMINI_MODEL = "gemini-3.5-flash";
+const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
+
+const GEMINI_MODELS = [
+  { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash (Rapido / Recomendado)" },
+  { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro (Raciocinio Avancado)" },
+  { id: "gemini-2.0-flash", label: "Gemini 2.0 Flash (Compativel)" }
+];
 
 const GEMINI_SCHEMA_PROMPT = `
 Identifique a planta da imagem e responda exclusivamente com JSON valido.
@@ -208,14 +214,14 @@ diagnostico_e_saude, suplementos_e_manutencao, propagacao_e_extras.
 Use strings em portugues do Brasil e booleans reais para toxicidade.
 `;
 
-async function identifyPlantWithGemini({ apiKey, imageBase64, mimeType }) {
+async function identifyPlantWithGemini({ apiKey, imageBase64, mimeType, model = DEFAULT_GEMINI_MODEL }) {
   if (!apiKey) {
-    return mockGeminiResult();
+    throw new Error("Adicione sua API key do Gemini nas configuracoes para usar a IA.");
   }
 
   const cleanBase64 = imageBase64.split(",").pop();
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`,
+    geminiGenerateUrl(apiKey, model),
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -251,6 +257,39 @@ async function identifyPlantWithGemini({ apiKey, imageBase64, mimeType }) {
   if (!rawText) throw new Error("O Gemini nao retornou um JSON valido.");
 
   return validateGeminiResult(JSON.parse(rawText));
+}
+
+async function testGeminiApiKey({ apiKey, model = DEFAULT_GEMINI_MODEL }) {
+  if (!apiKey) {
+    throw new Error("Cole uma API key antes de testar.");
+  }
+
+  const response = await fetch(geminiGenerateUrl(apiKey, model), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: "Responda apenas: ok" }]
+        }
+      ],
+      generationConfig: {
+        temperature: 0,
+        maxOutputTokens: 8
+      }
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error("A chave nao respondeu. Verifique a API key e o modelo escolhido.");
+  }
+
+  return true;
+}
+
+function geminiGenerateUrl(apiKey, model) {
+  return `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
 }
 
 function validateGeminiResult(result) {
@@ -332,9 +371,14 @@ const state = {
   plants: [],
   selectedPlantId: "",
   apiKey: "",
+  geminiModel: DEFAULT_GEMINI_MODEL,
+  settingsDraftApiKey: null,
+  settingsDraftModel: null,
   uploadPreview: "",
   uploadMime: "",
   isAnalyzing: false,
+  isTestingApi: false,
+  apiTestMessage: "",
   toast: ""
 };
 
@@ -356,6 +400,7 @@ async function init() {
   }
 
   state.apiKey = await getSetting("geminiApiKey");
+  state.geminiModel = (await getSetting("geminiModel")) || DEFAULT_GEMINI_MODEL;
   const savedPlants = await listPlants();
   if (!savedPlants.length) {
     await Promise.all(mockPlants.map((plant) => savePlant(plant)));
@@ -460,7 +505,17 @@ function renderIdentify() {
   return `
     <section class="identify-panel">
       <h1>Identificar com IA</h1>
-      <p>A foto fica salva localmente. Com API key configurada, o Gemini analisa a imagem; sem chave, o app usa um retorno mock.</p>
+      <p>A foto fica salva localmente. Com API key configurada, o Gemini analisa a imagem e salva a planta na sua colecao.</p>
+
+      ${
+        state.apiKey
+          ? ""
+          : `<article class="friendly-card">
+              <strong>Configure a chave para usar a IA</strong>
+              <span>Adicione sua API key do Gemini em Ajustes para analisar fotos de plantas.</span>
+              <button class="secondary-button" data-tab="settings">Adicionar chave</button>
+            </article>`
+      }
 
       <label class="upload-box">
         <input type="file" accept="image/*" capture="environment" id="plantUpload" />
@@ -471,7 +526,7 @@ function renderIdentify() {
         }
       </label>
 
-      <button class="primary-button" id="analyzeButton" ${state.uploadPreview && !state.isAnalyzing ? "" : "disabled"}>
+      <button class="primary-button" id="analyzeButton" ${state.apiKey && state.uploadPreview && !state.isAnalyzing ? "" : "disabled"}>
         ${state.isAnalyzing ? "Analisando folhas..." : "Analisar e salvar planta"}
       </button>
       ${state.isAnalyzing ? `<div class="skeleton-card"></div>` : ""}
@@ -513,6 +568,9 @@ function renderCare() {
 }
 
 function renderSettings() {
+  const displayedApiKey = state.settingsDraftApiKey ?? state.apiKey;
+  const displayedModel = state.settingsDraftModel ?? state.geminiModel;
+
   return `
     <section class="settings-panel">
       <h1>Configuracoes</h1>
@@ -529,17 +587,28 @@ function renderSettings() {
             autocapitalize="off"
             spellcheck="false"
             placeholder="Cole sua chave aqui"
-            value="${escapeHtml(state.apiKey)}"
+            value="${escapeHtml(displayedApiKey)}"
           />
           <button type="button" class="icon-button" id="toggleKey" aria-label="Mostrar ou esconder chave">${eyeIcon()}</button>
         </div>
+        <label for="geminiModel">Modelo Gemini</label>
+        <select id="geminiModel" name="geminiModel">
+          ${GEMINI_MODELS.map(
+            (model) => `<option value="${model.id}" ${displayedModel === model.id ? "selected" : ""}>${model.label}</option>`
+          ).join("")}
+        </select>
         <button class="primary-button" type="submit">Salvar chave</button>
+        <button class="secondary-button" type="button" id="testApiKey" ${state.isTestingApi ? "disabled" : ""}>
+          ${state.isTestingApi ? "Testando..." : "Testar API"}
+        </button>
         <button class="ghost-button" type="button" id="removeKey">Remover chave</button>
       </form>
 
+      ${state.apiTestMessage ? `<article class="status-card ${state.apiTestMessage.includes("funcionando") ? "success" : "warning"}"><span>${state.apiTestMessage}</span></article>` : ""}
+
       <article class="status-card">
         <strong>Status do Gemini</strong>
-        <span>${state.apiKey ? "API key salva localmente. A proxima identificacao usara o Gemini." : "Sem chave salva. O app usara o fallback mock."}</span>
+        <span>${state.apiKey ? `API key salva localmente. A proxima identificacao usara ${labelForModel(state.geminiModel)}.` : "Sem chave salva. A IA vai pedir para adicionar a chave antes de analisar."}</span>
       </article>
     </section>
   `;
@@ -563,65 +632,67 @@ function renderNav() {
 }
 
 function renderPlantCard(plant) {
-  const info = plant.gemini.identificacao_basica;
-  const care = plant.gemini.cuidados_e_rotina;
-  const season = plant.gemini.sazonalidade_e_crescimento.temporada_ativa_season;
+  const info = plant.gemini?.identificacao_basica || {};
+  const care = plant.gemini?.cuidados_e_rotina || {};
+  const season = plant.gemini?.sazonalidade_e_crescimento?.temporada_ativa_season || "Interior";
+  const light = care.necessidade_luminosidade || "Luz indireta";
 
   return `
     <article class="plant-card" data-open="${plant.id}">
-      <img src="${plant.image}" alt="${info.nome_popular}" />
+      <img src="${plant.image}" alt="${info.nome_popular || "Planta"}" />
       <span class="season">${season}</span>
-      <h3>${info.nome_popular}</h3>
-      <p>${info.nome_cientifico}</p>
+      <h3>${info.nome_popular || "Planta salva"}</h3>
+      <p>${info.nome_cientifico || "Identificacao incompleta"}</p>
       <div class="card-meta">
-        <span>${dropIcon()} ${care.frequencia_rega_verao}</span>
-        <span>${sunIcon()} ${care.necessidade_luminosidade.split(" ").slice(0, 2).join(" ")}</span>
+        <span>${dropIcon()} ${care.frequencia_rega_verao || "Rega moderada"}</span>
+        <span>${sunIcon()} ${light.split(" ").slice(0, 2).join(" ")}</span>
       </div>
     </article>
   `;
 }
 
 function renderDetailsModal(plant) {
-  const info = plant.gemini.identificacao_basica;
-  const care = plant.gemini.cuidados_e_rotina;
-  const health = plant.gemini.diagnostico_e_saude;
-  const supplements = plant.gemini.suplementos_e_manutencao;
-  const extras = plant.gemini.propagacao_e_extras;
+  const info = plant.gemini?.identificacao_basica || {};
+  const care = plant.gemini?.cuidados_e_rotina || {};
+  const health = plant.gemini?.diagnostico_e_saude || {};
+  const supplements = plant.gemini?.suplementos_e_manutencao || {};
+  const extras = plant.gemini?.propagacao_e_extras || {};
+  const pests = Array.isArray(health.principais_pragas_ameaca) ? health.principais_pragas_ameaca : [];
 
   return `
     <aside class="modal-backdrop">
       <section class="plant-modal">
         <div class="modal-image">
-          <img src="${plant.image}" alt="${info.nome_popular}" />
+          <img src="${plant.image}" alt="${info.nome_popular || "Planta"}" />
           <button class="icon-button close-modal" aria-label="Fechar">${closeIcon()}</button>
         </div>
         <div class="modal-body">
-          <h1>${info.nome_popular}</h1>
-          <p>${info.nome_cientifico}</p>
+          <h1>${info.nome_popular || "Planta salva"}</h1>
+          <p>${info.nome_cientifico || "Identificacao incompleta"}</p>
           <div class="badge-row">
-            <span>${health.status_saude_atual}</span>
+            <span>${health.status_saude_atual || "Acompanhamento pendente"}</span>
             ${care.toxicidade_pets ? "<span>Toxica para pets</span>" : "<span>Pet friendly</span>"}
           </div>
           <div class="detail-metrics">
-            <article>${dropIcon()}<strong>${care.frequencia_rega_verao}</strong><span>Rega</span></article>
-            <article>${sunIcon()}<strong>${care.necessidade_luminosidade}</strong><span>Luz</span></article>
-            <article>${thermoIcon()}<strong>${care.tolerancia_temperatura}</strong><span>Temperatura</span></article>
+            <article>${dropIcon()}<strong>${care.frequencia_rega_verao || "Rega moderada"}</strong><span>Rega</span></article>
+            <article>${sunIcon()}<strong>${care.necessidade_luminosidade || "Luz indireta"}</strong><span>Luz</span></article>
+            <article>${thermoIcon()}<strong>${care.tolerancia_temperatura || "Ambiente interno"}</strong><span>Temperatura</span></article>
           </div>
           <div class="detail-section">
             <h2>Identificacao</h2>
-            <p>Familia ${info.familia_botanica}. Origem: ${info.origem_geografica}. Ciclo: ${info.ciclo_de_vida}.</p>
+            <p>Familia ${info.familia_botanica || "nao informada"}. Origem: ${info.origem_geografica || "nao informada"}. Ciclo: ${info.ciclo_de_vida || "nao informado"}.</p>
           </div>
           <div class="detail-section">
             <h2>Saude</h2>
-            <p>Pragas: ${health.principais_pragas_ameaca.join(", ")}. Excesso de agua: ${health.sinais_excesso_agua}.</p>
+            <p>Pragas: ${pests.length ? pests.join(", ") : "nao informadas"}. Excesso de agua: ${health.sinais_excesso_agua || "sem sinais registrados"}.</p>
           </div>
           <div class="detail-section">
             <h2>Suplementos</h2>
-            <p>${supplements.tipo_solo_substrato_ideal}. Adubacao: ${supplements.frequencia_adubacao}.</p>
+            <p>${supplements.tipo_solo_substrato_ideal || "Substrato nao informado"}. Adubacao: ${supplements.frequencia_adubacao || "nao informada"}.</p>
           </div>
           <div class="detail-section">
             <h2>Propagacao</h2>
-            <p>${extras.metodo_propagacao}. ${extras.instrucoes_execucao_passo_a_passo}</p>
+            <p>${extras.metodo_propagacao || "Metodo nao informado"}. ${extras.instrucoes_execucao_passo_a_passo || ""}</p>
           </div>
           <label class="notes-label" for="plantNotes">Notas</label>
           <textarea id="plantNotes" data-notes="${plant.id}">${escapeHtml(plant.notes || "")}</textarea>
@@ -661,6 +732,7 @@ function bindEvents() {
   document.querySelector("#settingsForm")?.addEventListener("submit", saveSettings);
   document.querySelector("#removeKey")?.addEventListener("click", removeApiKey);
   document.querySelector("#toggleKey")?.addEventListener("click", toggleKeyVisibility);
+  document.querySelector("#testApiKey")?.addEventListener("click", testApiKey);
 
   document.querySelectorAll("[data-water]").forEach((button) => {
     button.addEventListener("click", async (event) => {
@@ -697,6 +769,12 @@ async function handleUpload(event) {
 
 async function analyzeUpload() {
   if (!state.uploadPreview) return;
+  if (!state.apiKey) {
+    state.tab = "settings";
+    showToast("Adicione sua API key do Gemini para usar a IA.");
+    return;
+  }
+
   state.isAnalyzing = true;
   render();
 
@@ -704,7 +782,8 @@ async function analyzeUpload() {
     const gemini = await identifyPlantWithGemini({
       apiKey: state.apiKey,
       imageBase64: state.uploadPreview,
-      mimeType: state.uploadMime
+      mimeType: state.uploadMime,
+      model: state.geminiModel
     });
 
     const plant = await savePlant({
@@ -734,15 +813,48 @@ async function analyzeUpload() {
 async function saveSettings(event) {
   event.preventDefault();
   const input = document.querySelector("#geminiApiKey");
+  const model = document.querySelector("#geminiModel");
   state.apiKey = input.value.trim();
+  state.geminiModel = model.value;
   await setSetting("geminiApiKey", state.apiKey);
+  await setSetting("geminiModel", state.geminiModel);
+  state.settingsDraftApiKey = null;
+  state.settingsDraftModel = null;
+  state.apiTestMessage = "";
   showToast("API key do Gemini salva localmente.");
 }
 
 async function removeApiKey() {
   state.apiKey = "";
+  state.settingsDraftApiKey = null;
+  state.settingsDraftModel = null;
+  state.apiTestMessage = "";
   await deleteSetting("geminiApiKey");
   showToast("API key removida.");
+}
+
+async function testApiKey() {
+  const input = document.querySelector("#geminiApiKey");
+  const model = document.querySelector("#geminiModel");
+  const apiKey = input.value.trim();
+  const modelId = model.value;
+
+  state.settingsDraftApiKey = apiKey;
+  state.settingsDraftModel = modelId;
+  state.isTestingApi = true;
+  state.apiTestMessage = "";
+  render();
+
+  try {
+    await testGeminiApiKey({ apiKey, model: modelId });
+    state.apiTestMessage = "API funcionando. Salve a chave para usar a IA.";
+  } catch (error) {
+    console.error(error);
+    state.apiTestMessage = error.message || "Nao foi possivel testar a API key.";
+  } finally {
+    state.isTestingApi = false;
+    render();
+  }
 }
 
 function toggleKeyVisibility() {
@@ -778,7 +890,11 @@ function fileToBase64(file) {
 }
 
 function nameOf(plant) {
-  return plant.gemini.identificacao_basica.nome_popular;
+  return plant.gemini?.identificacao_basica?.nome_popular || "Planta salva";
+}
+
+function labelForModel(modelId) {
+  return GEMINI_MODELS.find((model) => model.id === modelId)?.label || modelId;
 }
 
 function daysSince(date) {

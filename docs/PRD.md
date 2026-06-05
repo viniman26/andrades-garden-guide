@@ -27,7 +27,7 @@ Pessoas que cultivam plantas em casa e querem uma rotina visual, simples e confi
 - Listar plantas.
 - Salvar plantas com imagem Base64 e JSON completo.
 - Identificar planta por imagem via Gemini quando a chave existir.
-- Usar fallback mock quando a chave nao estiver configurada ou a chamada falhar.
+- Mostrar mensagem amigavel pedindo a API key quando a chave nao estiver configurada.
 - Regar planta e atualizar a ultima rega.
 - Editar notas locais.
 - Excluir planta.
@@ -63,6 +63,6 @@ Pessoas que cultivam plantas em casa e querem uma rotina visual, simples e confi
 - App abre localmente sem erros.
 - Dados mocados aparecem na colecao.
 - Usuario consegue salvar a API key do Gemini em Configuracoes.
-- Identificacao funciona com fallback mock sem chave.
+- Identificacao sem chave orienta o usuario a configurar a API key.
 - Plantas sao persistidas no IndexedDB.
 - Service worker registra sem quebrar a interface.

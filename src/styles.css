@@ -35,6 +35,7 @@ body {
 
 button,
 input,
+select,
 textarea {
   font: inherit;
   font-size: 16px;
@@ -269,6 +270,7 @@ svg {
 .identify-panel,
 .settings-panel,
 .status-card,
+.friendly-card,
 .care-row,
 .plant-card,
 .quick-card,
@@ -315,6 +317,7 @@ h2 {
 .identify-panel p,
 .settings-panel p,
 .status-card span,
+.friendly-card span,
 .care-row span {
   color: var(--muted);
 }
@@ -521,6 +524,18 @@ h2 {
   color: var(--green-800);
 }
 
+.friendly-card {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0 4px;
+  padding: 16px;
+  border-radius: 20px;
+}
+
+.friendly-card .secondary-button {
+  width: 100%;
+}
+
 .primary-button,
 .secondary-button,
 .ghost-button {
@@ -615,6 +630,7 @@ h2 {
 }
 
 .key-row input,
+select,
 textarea {
   width: 100%;
   border: 1px solid var(--border);
@@ -629,12 +645,38 @@ textarea {
   padding: 0 14px;
 }
 
+select {
+  min-height: 48px;
+  padding: 0 36px 0 14px;
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--green-800) 50%),
+    linear-gradient(135deg, var(--green-800) 50%, transparent 50%);
+  background-position:
+    calc(100% - 20px) 20px,
+    calc(100% - 14px) 20px;
+  background-repeat: no-repeat;
+  background-size:
+    6px 6px,
+    6px 6px;
+}
+
 .status-card {
   display: grid;
   gap: 6px;
   margin-top: 18px;
   padding: 16px;
   border-radius: 20px;
+}
+
+.status-card.success {
+  border-color: rgba(31, 90, 56, 0.28);
+  background: rgba(221, 244, 226, 0.9);
+}
+
+.status-card.warning {
+  border-color: rgba(156, 51, 42, 0.2);
+  background: rgba(255, 242, 232, 0.9);
 }
 
 .bottom-nav {

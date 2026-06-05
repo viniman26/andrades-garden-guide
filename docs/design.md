@@ -41,7 +41,7 @@ Grid de cards com foto, nome popular, nome cientifico, temporada, frequencia de 
 
 ### Identificacao com IA
 
-Upload/camera, preview, estado de analise, chamada Gemini quando a API key existir e fallback mock quando nao existir.
+Upload/camera, preview, estado de analise, chamada Gemini quando a API key existir e mensagem amigavel pedindo a chave quando nao existir.
 
 ### Detalhes da Planta
 
