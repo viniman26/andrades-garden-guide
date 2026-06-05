@@ -27,6 +27,8 @@ body {
   height: 100%;
   margin: 0;
   overflow: hidden;
+  position: fixed;
+  inset: 0;
   overscroll-behavior: none;
   touch-action: manipulation;
   background: #0f2f23;
@@ -66,7 +68,7 @@ svg {
   background:
     radial-gradient(circle at 50% 42%, rgba(255, 250, 229, 0.42), transparent 28%),
     linear-gradient(180deg, rgba(13, 55, 35, 0.3), rgba(8, 32, 23, 0.88)),
-    url("../assets/wallpaper.png") center / cover;
+    url("/assets/wallpaper.png") center / cover;
   transition:
     opacity 580ms ease,
     transform 580ms ease,
@@ -178,17 +180,24 @@ svg {
 }
 
 .app-shell {
-  min-height: 100dvh;
+  position: fixed;
+  inset: 0;
+  height: 100%;
+  width: 100%;
   display: flex;
   justify-content: center;
   align-items: stretch;
   background: #0f2f23;
+  overflow: hidden;
 }
 
 .phone-frame {
   width: 100vw;
-  height: 100dvh;
+  height: 100%;
   padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .screen {
@@ -202,7 +211,7 @@ svg {
   flex-direction: column;
   background:
     linear-gradient(180deg, rgba(12, 41, 27, 0.45), rgba(12, 41, 27, 0.8)),
-    url("../assets/wallpaper.png") center / cover;
+    url("/assets/wallpaper.png") center / cover;
 }
 
 .screen::before {
@@ -1094,21 +1103,31 @@ textarea {
   .app-shell {
     background:
       linear-gradient(180deg, rgba(8, 41, 27, 0.15), rgba(8, 41, 27, 0.65)),
-      url("../assets/wallpaper.png") center / cover fixed;
+      url("/assets/wallpaper.png") center / cover fixed;
     display: grid;
     place-items: center;
+    position: fixed;
+    inset: 0;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
   }
 
   .phone-frame {
     width: min(100vw, 430px);
-    height: 100dvh;
-    padding: max(env(safe-area-inset-top), 10px) 10px max(env(safe-area-inset-bottom), 10px);
+    height: 100%;
+    max-height: 850px;
+    padding: 10px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
   }
 
   .screen {
     border: 1px solid rgba(255, 255, 255, 0.34);
     border-radius: 34px;
     box-shadow: var(--shadow);
+    height: 100%;
   }
 
   .topbar {

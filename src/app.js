@@ -45,8 +45,11 @@ async function init() {
   const splashStartedAt = performance.now();
 
   try {
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./service-worker.js").catch(() => {});
+    const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+    if ("serviceWorker" in navigator && !isLocalhost) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("/service-worker.js").catch(() => {});
+      });
     }
 
     state.apiKey = await getSetting("geminiApiKey");
@@ -94,7 +97,7 @@ function renderHeader() {
   return `
     <header class="topbar">
       <button class="brand-button" data-tab="home" aria-label="Ir para inicio">
-        <img src="./assets/logo.png" alt="Andrade's Garden Guide" class="brand-logo" />
+        <img src="/assets/logo.png" alt="Andrade's Garden Guide" class="brand-logo" />
       </button>
       <button class="icon-button" data-tab="settings" aria-label="Abrir configuracoes">${gearIcon()}</button>
     </header>

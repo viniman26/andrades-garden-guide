@@ -1,0 +1,19 @@
+{
+  "name": "Andrade's Garden Guide",
+  "short_name": "Garden Guide",
+  "description": "Guia local para catalogar e cuidar de plantas domesticas.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#1f5a38",
+  "background_color": "#f4efe2",
+  "icons": [
+    {
+      "src": "./assets/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
