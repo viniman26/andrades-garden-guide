@@ -201,7 +201,7 @@ svg {
   display: flex;
   flex-direction: column;
   background:
-    linear-gradient(180deg, rgba(12, 41, 27, 0.25), rgba(12, 41, 27, 0.65)),
+    linear-gradient(180deg, rgba(12, 41, 27, 0.45), rgba(12, 41, 27, 0.8)),
     url("../assets/wallpaper.png") center / cover;
 }
 
@@ -209,8 +209,8 @@ svg {
   position: absolute;
   inset: 0;
   content: "";
-  background: rgba(12, 35, 22, 0.12);
-  backdrop-filter: blur(0.5px);
+  background: rgba(12, 35, 22, 0.22);
+  backdrop-filter: blur(1px);
   pointer-events: none;
 }
 
@@ -389,9 +389,16 @@ h2 {
 }
 
 .section-title h1,
-.section-title h2,
+.section-title h2 {
+  margin-bottom: 2px;
+  color: #ffffff;
+  text-shadow: 0 1.5px 3.5px rgba(0, 0, 0, 0.75);
+}
+
 .section-title p {
   margin-bottom: 2px;
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 1.5px 3.5px rgba(0, 0, 0, 0.75);
 }
 
 .section-title button,
@@ -519,6 +526,24 @@ h2 {
   margin-bottom: 14px;
   border-radius: 17px;
   color: var(--muted);
+  background: rgba(255, 252, 245, 0.88);
+  border: 1px solid rgba(31, 90, 56, 0.2);
+}
+
+.search-box input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 16px;
+  color: var(--text);
+  padding: 0;
+  height: 100%;
+}
+
+.search-box input::placeholder {
+  color: var(--muted);
+  opacity: 0.8;
 }
 
 .identify-panel,
@@ -1048,12 +1073,14 @@ textarea {
   width: 100%;
   padding: 38px 22px;
   border: 1.5px dashed var(--border);
-  background: rgba(255, 252, 245, 0.35);
+  background: rgba(255, 252, 245, 0.92);
+  backdrop-filter: blur(10px);
   border-radius: 22px;
   text-align: center;
-  color: var(--muted);
+  color: var(--text);
   font-size: 14px;
   line-height: 1.4;
+  box-shadow: 0 12px 28px rgba(22, 52, 31, 0.14);
 }
 
 .empty-care-card span {
