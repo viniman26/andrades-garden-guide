@@ -4,7 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "py -m http.server 4173 --bind 127.0.0.1",
-    "build": "node scripts/build-bundle.mjs && node scripts/validate-build.mjs"
+    "dev": "node scripts/dev-server.mjs",
+    "build": "node scripts/build-bundle.mjs && node scripts/validate-build.mjs",
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.60.0"
   }
 }

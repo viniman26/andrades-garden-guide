@@ -43,19 +43,25 @@ init();
 async function init() {
   const splashStartedAt = performance.now();
 
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("./service-worker.js").catch(() => {});
+  try {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("./service-worker.js").catch(() => {});
+    }
+
+    state.apiKey = await getSetting("geminiApiKey");
+    state.geminiModel = (await getSetting("geminiModel")) || DEFAULT_GEMINI_MODEL;
+    const savedPlants = await listPlants();
+    if (!savedPlants.length) {
+      await Promise.all(mockPlants.map((plant) => savePlant(plant)));
+      state.plants = await listPlants();
+    } else {
+      state.plants = savedPlants;
+    }
+  } catch (error) {
+    console.error("Erro ao carregar IndexedDB, usando dados em memoria:", error);
+    state.plants = [...mockPlants];
   }
 
-  state.apiKey = await getSetting("geminiApiKey");
-  state.geminiModel = (await getSetting("geminiModel")) || DEFAULT_GEMINI_MODEL;
-  const savedPlants = await listPlants();
-  if (!savedPlants.length) {
-    await Promise.all(mockPlants.map((plant) => savePlant(plant)));
-    state.plants = await listPlants();
-  } else {
-    state.plants = savedPlants;
-  }
   render();
 
   const elapsed = performance.now() - splashStartedAt;
@@ -636,6 +642,20 @@ function showToast(message) {
 
 function wait(milliseconds) {
   return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+}
+
+function daysSince(date) {
+  return Math.max(0, Math.floor((Date.now() - new Date(date).getTime()) / 86400000));
+}
+
+function getWateringInterval(plant) {
+  const care = plant.gemini?.cuidados_e_rotina || {};
+  const freq = care.frequencia_rega_verao || "";
+  const match = freq.match(/(\d+)/);
+  if (match) {
+    return parseInt(match[1], 10);
+  }
+  return 7; // default to 7 days
 }
 function hideSplash() {
   if (!splash) return;
