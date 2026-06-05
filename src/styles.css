@@ -23,9 +23,9 @@
 
 html {
   width: 100%;
-  height: 100%;
+  min-height: 100%;
   margin: 0;
-  overflow: hidden;
+  overflow-x: hidden;
   overscroll-behavior: none;
   touch-action: manipulation;
   background: #0f2f23;
@@ -33,9 +33,9 @@ html {
 
 body {
   width: 100%;
-  height: 100%;
+  min-height: 100%;
   margin: 0;
-  overflow: hidden;
+  overflow-x: hidden;
   background: #0f2f23;
   color: var(--text);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -186,36 +186,26 @@ svg {
 }
 
 .app-shell {
-  height: 100vh;
-  height: 100svh;
+  min-height: 100vh;
   width: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: stretch;
   background: #0f2f23;
-  overflow: hidden;
+  overflow-x: hidden;
 }
 
 .phone-frame {
   width: 100vw;
-  height: 100%;
-  min-height: 0;
+  min-height: 100vh;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .screen {
   position: relative;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
+  min-height: 100vh;
+  overflow: visible;
   border: none;
   border-radius: 0;
   box-shadow: none;
-  display: flex;
-  flex-direction: column;
   background:
     linear-gradient(180deg, rgba(12, 41, 27, 0.45), rgba(12, 41, 27, 0.8)),
     url("../assets/wallpaper.png") center / cover;
@@ -273,10 +263,8 @@ svg {
 }
 
 .content-scroll {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 0 18px 18px;
+  overflow: visible;
+  padding: 0 18px 128px;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
 }
@@ -760,15 +748,18 @@ select {
 }
 
 .bottom-nav {
-  flex: 0 0 auto;
-  width: 100%;
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(100vw, 480px);
   z-index: 40;
-  height: calc(62px + env(safe-area-inset-bottom, 0px));
+  min-height: 64px;
   box-sizing: border-box;
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   place-items: center;
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding: 10px 12px max(10px, env(safe-area-inset-bottom, 0px));
   border-top: 1px solid var(--border);
   border-radius: 0;
   background: var(--surface-strong);
@@ -1117,32 +1108,25 @@ textarea {
     background:
       linear-gradient(180deg, rgba(8, 41, 27, 0.15), rgba(8, 41, 27, 0.65)),
       url("../assets/wallpaper.png") center / cover fixed;
-    display: flex;
-    justify-content: center;
-    align-items: stretch;
-    height: 100vh;
-    height: 100svh;
+    min-height: 100vh;
     width: 100%;
-    overflow: hidden;
+    overflow-x: hidden;
   }
 
   .phone-frame {
     width: 100%;
     max-width: 480px;
-    height: 100%;
-    min-height: 0;
+    min-height: 100vh;
+    margin: 0 auto;
     padding: 0;
     box-sizing: border-box;
-    display: flex;
-    flex-direction: column;
     box-shadow: var(--shadow);
     border-left: 1px solid rgba(255, 255, 255, 0.15);
     border-right: 1px solid rgba(255, 255, 255, 0.15);
   }
 
   .screen {
-    flex: 1;
-    min-height: 0;
+    min-height: 100vh;
     border: none;
     border-radius: 0;
     box-shadow: none;
@@ -1155,7 +1139,6 @@ textarea {
 
   .bottom-nav {
     border-radius: 0;
-    height: 64px;
-    padding-bottom: 0;
+    width: min(100vw, 480px);
   }
 }
