@@ -23,8 +23,10 @@ Bottom navigation fixa com cinco abas:
 
 ## Layout iPhone
 
-- `100dvh`, safe-area para notch e barra inferior.
-- Body sem rolagem global; rolagem apenas no painel interno.
+- O layout segue o padrao validado no Andrade Family Quest: pagina rolavel normal, `bottom-nav` fixo e padding inferior reservado no conteudo.
+- Nao usar `viewport-fit=cover`; no iOS Safari ele criou uma faixa inferior extra e comportamento instavel com a barra do navegador.
+- O `body` pode rolar verticalmente; evitar `overflow: hidden` global para telas com conteudo longo.
+- O menu inferior fica `position: fixed`, centralizado na largura do app e com `padding-bottom: max(10px, env(safe-area-inset-bottom))`.
 - Inputs com 16px para evitar zoom automatico no iOS.
 - Botao principal grande e facil de tocar.
 - Cartoes translucidos com blur leve e raio consistente.
@@ -45,15 +47,23 @@ Upload/camera, preview, estado de analise, chamada Gemini quando a API key exist
 
 ### Detalhes da Planta
 
-Modal com foto, badges, resumo de cuidados, secoes de identificacao, saude, suplementos, propagacao, notas, regar e excluir.
+Modal com foto, nome popular principal, nome cientifico, nome popular usado em Ontario/Canada, confianca da IA, resumo visual do que foi identificado, origem/regiao nativa, familia, genero, substrato, vaso, floracao, cuidados praticos em Ontario, saude, manutencao, curiosidades, notas, regar e excluir.
 
 ### Cuidados
 
-Lista de tarefas locais baseada nas plantas cadastradas e acao rapida de regar.
+Lista de tarefas locais baseada nas plantas cadastradas, acao rapida de regar e card "Clima hoje para suas plantas" com dados Open-Meteo para orientar rega, umidade e luz.
 
 ### Configuracoes
 
 Campo para colar e salvar a API key do Gemini localmente no navegador. A chave nao e enviada a nenhum servidor proprio; ela e usada apenas no navegador para chamadas diretas ao Gemini.
+
+Configuracao de clima local com cidade/regiao de Ontario ou geolocalizacao do navegador. O app usa Open-Meteo sem API key e salva a ultima localizacao/previsao localmente.
+
+## IA Botanica
+
+A resposta do Gemini deve priorizar utilidade para moradores de Ontario, Canada. Cada identificacao deve incluir nome cientifico correto, nome popular em portugues, nome popular usado em Ontario/Canada em ingles, nome comercial de garden center, origem/regiao nativa, confianca da identificacao, sinais vistos na foto e cuidados praticos para ambiente interno em Ontario.
+
+Para orquideas Phalaenopsis, usar "Orquidea borboleta" em portugues, "Moth orchid" em Ontario/Canada e explicar quando `Phalaenopsis spp.` significa genero/grupo identificado sem especie ou cultivar exata.
 
 ## PWA
 

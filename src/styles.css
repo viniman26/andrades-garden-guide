@@ -747,6 +747,133 @@ select {
   background: rgba(255, 242, 232, 0.9);
 }
 
+.weather-card {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 16px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: rgba(255, 252, 245, 0.86);
+  box-shadow: 0 12px 28px rgba(22, 52, 31, 0.14);
+  backdrop-filter: blur(18px);
+}
+
+.weather-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.weather-card h2 {
+  margin-bottom: 2px;
+  color: var(--green-950);
+}
+
+.weather-card p {
+  margin-bottom: 0;
+  color: var(--muted);
+}
+
+.weather-kicker,
+.detail-kicker {
+  display: inline-flex;
+  margin-bottom: 4px;
+  color: var(--green-800);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.weather-now {
+  display: flex;
+  align-items: end;
+  gap: 10px;
+}
+
+.weather-now strong {
+  color: var(--green-800);
+  font-size: 38px;
+  line-height: 0.95;
+}
+
+.weather-now span {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.weather-grid,
+.plant-fact-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.weather-grid article,
+.plant-fact-grid article {
+  min-height: 72px;
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  padding: 10px;
+  border-radius: 16px;
+  background: rgba(31, 90, 56, 0.08);
+}
+
+.weather-grid span,
+.plant-fact-grid span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.weather-grid strong,
+.plant-fact-grid strong {
+  color: var(--green-950);
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.weather-advice,
+.detail-section ul {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.weather-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.weather-settings-card {
+  gap: 12px;
+}
+
+.weather-location-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
+.weather-location-row input {
+  min-width: 0;
+  height: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  outline: 0;
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--text);
+}
+
 .bottom-nav {
   position: fixed;
   bottom: 0;
@@ -799,16 +926,17 @@ select {
   z-index: 100; /* Garante que o modal fique por cima do menu inferior fixed (z-index: 40) */
   display: grid;
   place-items: end center;
-  padding: 12px;
+  --modal-bottom-clearance: calc(76px + env(safe-area-inset-bottom, 0px));
+  padding: 12px 12px calc(var(--modal-bottom-clearance) + 12px);
   background: rgba(11, 31, 22, 0.45);
 }
 
 .plant-modal {
   width: min(100%, 420px);
-  max-height: 92dvh;
+  max-height: calc(100dvh - var(--modal-bottom-clearance) - 24px);
   overflow: hidden;
   border-radius: 30px;
-  background: var(--surface-strong);
+  background: rgba(255, 252, 245, 0.97);
   box-shadow: var(--shadow);
 }
 
@@ -830,13 +958,21 @@ select {
 }
 
 .modal-body {
-  max-height: calc(92dvh - 230px);
+  max-height: calc(100dvh - var(--modal-bottom-clearance) - 254px);
   overflow: auto;
+  background: rgba(255, 252, 245, 0.97);
   padding: 18px 18px 48px; /* Preenchimento inferior extra para garantir visibilidade do botão Excluir */
 }
 
 .modal-body h1 {
+  margin-bottom: 4px;
   font-size: 26px;
+}
+
+.plant-title-block p {
+  margin-bottom: 0;
+  color: var(--muted);
+  font-size: 15px;
 }
 
 .badge-row {
@@ -862,6 +998,10 @@ select {
   margin: 14px 0;
 }
 
+.detail-metrics--rich {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .detail-metrics article {
   min-height: 92px;
   display: grid;
@@ -882,6 +1022,14 @@ select {
   border-top: 1px solid var(--border);
 }
 
+.detail-highlight {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid rgba(31, 90, 56, 0.16);
+  border-radius: 18px;
+  background: rgba(31, 90, 56, 0.07);
+}
+
 .detail-section h2 {
   font-size: 16px;
 }
@@ -890,6 +1038,14 @@ select {
   color: var(--muted);
   font-size: 14px;
   line-height: 1.5;
+}
+
+.detail-section small {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 textarea {

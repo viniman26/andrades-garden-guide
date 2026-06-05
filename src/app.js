@@ -8,6 +8,7 @@ import {
   setSetting
 } from "./services/db.js";
 import { DEFAULT_GEMINI_MODEL, GEMINI_MODELS, identifyPlantWithGemini, testGeminiApiKey } from "./services/gemini.js";
+import { DEFAULT_WEATHER_LOCATION, fetchWeatherForecast, geocodeWeatherLocation } from "./services/weather.js";
 
 const app = document.querySelector("#app");
 const splash = document.querySelector("#splash");
@@ -28,7 +29,14 @@ const state = {
   apiTestMessage: "",
   toast: "",
   searchQuery: "",
-  selectedCareDayOffset: 0
+  selectedCareDayOffset: 0,
+  weather: {
+    location: DEFAULT_WEATHER_LOCATION,
+    forecast: null,
+    status: "idle",
+    message: "",
+    draftLocation: ""
+  }
 };
 
 const tabs = [
@@ -54,6 +62,8 @@ async function init() {
 
     state.apiKey = await getSetting("geminiApiKey");
     state.geminiModel = (await getSetting("geminiModel")) || DEFAULT_GEMINI_MODEL;
+    state.weather.location = (await getSetting("weatherLocation")) || DEFAULT_WEATHER_LOCATION;
+    state.weather.draftLocation = state.weather.location.name || DEFAULT_WEATHER_LOCATION.name;
     const savedPlants = await listPlants();
     if (!savedPlants.length) {
       await Promise.all(mockPlants.map((plant) => savePlant(plant)));
@@ -67,6 +77,7 @@ async function init() {
   }
 
   render();
+  refreshWeather({ silent: true });
 
   const elapsed = performance.now() - splashStartedAt;
   await wait(Math.max(0, SPLASH_DURATION_MS - elapsed));
@@ -148,8 +159,9 @@ function renderCollection() {
   const filteredPlants = state.plants.filter((plant) => {
     if (!query) return true;
     const popular = (plant.gemini?.identificacao_basica?.nome_popular || "").toLowerCase();
+    const ontario = (plant.gemini?.identificacao_basica?.nome_popular_ontario_canada || "").toLowerCase();
     const scientific = (plant.gemini?.identificacao_basica?.nome_cientifico || "").toLowerCase();
-    return popular.includes(query) || scientific.includes(query);
+    return popular.includes(query) || ontario.includes(query) || scientific.includes(query);
   });
 
   return `
@@ -228,6 +240,8 @@ function renderCare() {
         <p>Projete a rega das suas plantas para os proximos 14 dias.</p>
       </div>
     </section>
+
+    ${renderWeatherCard()}
 
     <div class="calendar-week">
       ${daysWithTasks.map(day => `
@@ -321,7 +335,70 @@ function renderSettings() {
         <strong>Status do Gemini</strong>
         <span>${state.apiKey ? `API key salva localmente. A proxima identificacao usara ${labelForModel(state.geminiModel)}.` : "Sem chave salva. A IA vai pedir para adicionar a chave antes de analisar."}</span>
       </article>
+
+      <article class="status-card weather-settings-card">
+        <strong>Clima local para cuidados</strong>
+        <span>Usamos Open-Meteo sem API key. Padrao: Toronto, Ontario.</span>
+        <div class="weather-location-row">
+          <input
+            id="weatherLocation"
+            type="text"
+            autocomplete="address-level2"
+            placeholder="Cidade, Ontario"
+            value="${escapeHtml(state.weather.draftLocation || state.weather.location.name || DEFAULT_WEATHER_LOCATION.name)}"
+          />
+          <button class="secondary-button" type="button" id="saveWeatherLocation">Salvar</button>
+        </div>
+        <button class="ghost-button" type="button" id="useCurrentLocation">Usar local atual</button>
+      </article>
     </section>
+  `;
+}
+
+function renderWeatherCard() {
+  const weather = state.weather;
+  const forecast = weather.forecast;
+  const current = forecast?.current;
+  const today = forecast?.daily?.[0];
+  const advice = buildWeatherAdvice(forecast);
+  const statusText = weather.status === "loading"
+    ? "Atualizando previsao..."
+    : weather.message || "Previsao local para planejar rega, umidade e luz.";
+
+  return `
+    <article class="weather-card">
+      <div class="weather-card__header">
+        <div>
+          <span class="weather-kicker">Ontario weather</span>
+          <h2>Clima hoje para suas plantas</h2>
+          <p>${escapeHtml(weather.location?.name || DEFAULT_WEATHER_LOCATION.name)}</p>
+        </div>
+        <button class="icon-button" id="refreshWeather" aria-label="Atualizar clima">${cloudIcon()}</button>
+      </div>
+      ${
+        forecast
+          ? `
+            <div class="weather-now">
+              <strong>${formatNumber(current?.temperature)}C</strong>
+              <span>${formatNumber(current?.humidity)}% umidade</span>
+            </div>
+            <div class="weather-grid">
+              <article><span>Max/Min</span><strong>${formatNumber(today?.tempMax)}C / ${formatNumber(today?.tempMin)}C</strong></article>
+              <article><span>Chuva</span><strong>${formatNumber(today?.precipitationProbability)}%</strong></article>
+              <article><span>Sol</span><strong>${formatNumber(today?.sunshineHours)}h</strong></article>
+              <article><span>Nuvens</span><strong>${formatNumber(current?.cloudCover)}%</strong></article>
+            </div>
+            <ul class="weather-advice">
+              ${advice.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
+            </ul>
+          `
+          : `<p class="muted">${escapeHtml(statusText)}</p>`
+      }
+      <div class="weather-actions">
+        <button class="secondary-button" id="useCurrentLocationCare" type="button">Usar local atual</button>
+        <button class="ghost-button" data-tab="settings" type="button">Trocar cidade</button>
+      </div>
+    </article>
   `;
 }
 
@@ -349,20 +426,21 @@ function renderPlantCard(plant) {
   const light = care.necessidade_luminosidade || "Luz indireta";
   const health = plant.gemini?.diagnostico_e_saude?.status_saude_atual || "Saudavel";
   const isToxic = care.toxicidade_pets || care.toxicidade_criancas || false;
+  const displayName = nameOf(plant);
 
   return `
     <article class="plant-card" data-open="${plant.id}">
-      <img src="${plant.image}" alt="${info.nome_popular || "Planta"}" />
-      <span class="season">${season}</span>
-      <h3>${info.nome_popular || "Planta salva"}</h3>
-      <p>${info.nome_cientifico || "Identificacao incompleta"}</p>
+      <img src="${plant.image}" alt="${escapeHtml(displayName)}" />
+      <span class="season">${escapeHtml(season)}</span>
+      <h3>${escapeHtml(displayName)}</h3>
+      <p>${escapeHtml(info.nome_cientifico || "Identificacao incompleta")}</p>
       <div class="card-badges">
-        <span class="badge-health ${health.toLowerCase().includes('saud') ? 'healthy' : 'warning'}">${health}</span>
+        <span class="badge-health ${health.toLowerCase().includes('saud') ? 'healthy' : 'warning'}">${escapeHtml(health)}</span>
         ${isToxic ? '<span class="badge-alert">⚠️ Toxica</span>' : '<span class="badge-alert friendly">🐾 Seguro</span>'}
       </div>
       <div class="card-meta">
-        <span>${dropIcon()} ${care.frequencia_rega_verao || "Rega moderada"}</span>
-        <span>${sunIcon()} ${light.split(" ").slice(0, 2).join(" ")}</span>
+        <span>${dropIcon()} ${escapeHtml(care.frequencia_rega_verao || "Rega moderada")}</span>
+        <span>${sunIcon()} ${escapeHtml(light.split(" ").slice(0, 2).join(" "))}</span>
       </div>
     </article>
   `;
@@ -370,47 +448,84 @@ function renderPlantCard(plant) {
 
 function renderDetailsModal(plant) {
   const info = plant.gemini?.identificacao_basica || {};
+  const visual = plant.gemini?.descricao_visual || {};
   const care = plant.gemini?.cuidados_e_rotina || {};
+  const season = plant.gemini?.sazonalidade_e_crescimento || {};
   const health = plant.gemini?.diagnostico_e_saude || {};
   const supplements = plant.gemini?.suplementos_e_manutencao || {};
   const extras = plant.gemini?.propagacao_e_extras || {};
   const pests = Array.isArray(health.principais_pragas_ameaca) ? health.principais_pragas_ameaca : [];
+  const displayName = nameOf(plant);
+  const isPhalaenopsis = isPhalaenopsisPlant(plant);
+  const ontarioName = info.nome_popular_ontario_canada || info.nome_comercial_canada || (isPhalaenopsis ? "Moth orchid" : "");
+  const commercialName = info.nome_comercial_canada && info.nome_comercial_canada !== ontarioName ? info.nome_comercial_canada : "";
+  const visualItems = Array.isArray(visual.sinais_observados) ? visual.sinais_observados : [];
+  const practicalCare = Array.isArray(care.cuidados_praticos_ontario) ? care.cuidados_praticos_ontario : [];
+  const commonMistakes = Array.isArray(care.erros_comuns) ? care.erros_comuns : [];
+  const positiveSigns = Array.isArray(health.sinais_positivos) ? health.sinais_positivos : [];
+  const alertSigns = Array.isArray(health.sinais_alerta) ? health.sinais_alerta : [];
+  const curiosities = Array.isArray(extras.curiosidades) ? extras.curiosidades : [];
 
   return `
     <aside class="modal-backdrop">
       <section class="plant-modal">
         <div class="modal-image">
-          <img src="${plant.image}" alt="${info.nome_popular || "Planta"}" />
+          <img src="${plant.image}" alt="${escapeHtml(displayName)}" />
           <button class="icon-button close-modal" aria-label="Fechar">${closeIcon()}</button>
         </div>
         <div class="modal-body">
-          <h1>${info.nome_popular || "Planta salva"}</h1>
-          <p>${info.nome_cientifico || "Identificacao incompleta"}</p>
+          <div class="plant-title-block">
+            <span class="detail-kicker">${escapeHtml(info.tipo_planta || (isPhalaenopsis ? "Orquidea epifita de interior" : "Planta de interior"))}</span>
+            <h1>${escapeHtml(displayName)}</h1>
+            <p><em>${escapeHtml(info.nome_cientifico || "Identificacao incompleta")}</em></p>
+          </div>
           <div class="badge-row">
-            <span>${health.status_saude_atual || "Acompanhamento pendente"}</span>
+            ${ontarioName ? `<span>Ontario/Canada: ${escapeHtml(ontarioName)}</span>` : ""}
+            ${commercialName ? `<span>Garden center: ${escapeHtml(commercialName)}</span>` : ""}
+            <span>${escapeHtml(info.confianca_identificacao || "Confianca pendente")}</span>
+            <span>${escapeHtml(health.status_saude_atual || "Acompanhamento pendente")}</span>
             ${care.toxicidade_pets ? "<span>Toxica para pets</span>" : "<span>Pet friendly</span>"}
             <span>Ultima rega: ${daysSince(plant.lastWateredAt) === 0 ? "Hoje" : daysSince(plant.lastWateredAt) === 1 ? "Ontem" : `ha ${daysSince(plant.lastWateredAt)} dias`}</span>
           </div>
-          <div class="detail-metrics">
-            <article>${dropIcon()}<strong>${care.frequencia_rega_verao || "Rega moderada"}</strong><span>Rega</span></article>
-            <article>${sunIcon()}<strong>${care.necessidade_luminosidade || "Luz indireta"}</strong><span>Luz</span></article>
-            <article>${thermoIcon()}<strong>${care.tolerancia_temperatura || "Ambiente interno"}</strong><span>Temperatura</span></article>
+          <div class="detail-metrics detail-metrics--rich">
+            <article>${dropIcon()}<strong>${escapeHtml(care.frequencia_rega_verao || "Rega moderada")}</strong><span>Rega verao</span></article>
+            <article>${sunIcon()}<strong>${escapeHtml(care.necessidade_luminosidade || "Luz indireta")}</strong><span>Luz</span></article>
+            <article>${thermoIcon()}<strong>${escapeHtml(care.tolerancia_temperatura || "Ambiente interno")}</strong><span>Temperatura</span></article>
+            <article>${cloudIcon()}<strong>${escapeHtml(care.umidade_ar_ideal || "Umidade media")}</strong><span>Umidade</span></article>
+          </div>
+          <div class="detail-section detail-highlight">
+            <h2>O que a IA viu</h2>
+            <p>${escapeHtml(visual.motivo_identificacao || info.observacao_identificacao || "Identificacao feita pela imagem enviada.")}</p>
+            ${visualItems.length ? `<ul>${visualItems.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}
+            ${visual.limitacoes_da_foto ? `<small>${escapeHtml(visual.limitacoes_da_foto)}</small>` : ""}
+          </div>
+          <div class="plant-fact-grid">
+            ${factCard("Regiao nativa", info.regiao_nativa || info.origem_geografica || (isPhalaenopsis ? "Asia tropical e norte da Australia" : "Origem botanica nao confirmada"))}
+            ${factCard("Familia", info.familia_botanica || (isPhalaenopsis ? "Orchidaceae" : "Familia nao confirmada"))}
+            ${factCard("Genero", info.genero || (isPhalaenopsis ? "Phalaenopsis" : "Genero nao confirmado"))}
+            ${factCard("Substrato", care.substrato_recomendado || supplements.tipo_solo_substrato_ideal || (isPhalaenopsis ? "Casca de pinus para orquideas" : "Substrato bem drenado"))}
+            ${factCard("Vaso", care.vaso_e_drenagem || supplements.necessidade_drenagem || (isPhalaenopsis ? "Vaso ventilado com furos" : "Vaso com furos"))}
+            ${factCard("Floracao", season.epoca_floracao || "Floracao varia por cultivo")}
           </div>
           <div class="detail-section">
-            <h2>Identificacao</h2>
-            <p>Familia ${info.familia_botanica || "nao informada"}. Origem: ${info.origem_geografica || "nao informada"}. Ciclo: ${info.ciclo_de_vida || "nao informado"}.</p>
+            <h2>Cuidados praticos em Ontario</h2>
+            ${practicalCare.length ? `<ul>${practicalCare.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : `<p>${escapeHtml(care.indicador_umidade_solo || "Cheque o substrato antes de regar, especialmente no inverno.")}</p>`}
+            ${commonMistakes.length ? `<p><strong>Evite:</strong> ${escapeHtml(commonMistakes.join("; "))}.</p>` : ""}
           </div>
           <div class="detail-section">
-            <h2>Saude</h2>
-            <p>Pragas: ${pests.length ? pests.join(", ") : "nao informadas"}. Excesso de agua: ${health.sinais_excesso_agua || "sem sinais registrados"}.</p>
+            <h2>Saude da planta</h2>
+            <p>${escapeHtml(health.proxima_acao_recomendada || "Observe folhas, raizes e umidade do substrato antes do proximo cuidado.")}</p>
+            ${positiveSigns.length ? `<p><strong>Sinais bons:</strong> ${escapeHtml(positiveSigns.join(", "))}.</p>` : ""}
+            ${alertSigns.length ? `<p><strong>Alertas:</strong> ${escapeHtml(alertSigns.join(", "))}.</p>` : ""}
+            <p><strong>Pragas comuns:</strong> ${escapeHtml(pests.length ? pests.join(", ") : "cochonilhas, acaros ou fungos conforme a especie")}.</p>
           </div>
           <div class="detail-section">
-            <h2>Suplementos</h2>
-            <p>${supplements.tipo_solo_substrato_ideal || "Substrato nao informado"}. Adubacao: ${supplements.frequencia_adubacao || "nao informada"}.</p>
-          </div>
-          <div class="detail-section">
-            <h2>Propagacao</h2>
-            <p>${extras.metodo_propagacao || "Metodo nao informado"}. ${extras.instrucoes_execucao_passo_a_passo || ""}</p>
+            <h2>Origem, manutencao e extras</h2>
+            <p>${escapeHtml(info.observacao_identificacao || `Origem: ${info.origem_geografica || "grupo botanico nao confirmado"}. Ciclo: ${info.ciclo_de_vida || "perene em cultivo domestico"}.`)}</p>
+            <p><strong>Adubacao:</strong> ${escapeHtml(supplements.frequencia_adubacao || "leve durante a fase ativa")} com ${escapeHtml(supplements.tipo_adubo_recomendado || "adubo equilibrado diluido")}.</p>
+            <p><strong>Propagacao:</strong> ${escapeHtml(extras.metodo_propagacao || "metodo varia por especie")}. ${escapeHtml(extras.instrucoes_execucao_passo_a_passo || "")}</p>
+            ${curiosities.length ? `<ul>${curiosities.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : ""}
+            ${extras.nota_para_pets_e_criancas ? `<small>${escapeHtml(extras.nota_para_pets_e_criancas)}</small>` : ""}
           </div>
           <label class="notes-label" for="plantNotes">Notas</label>
           <textarea id="plantNotes" data-notes="${plant.id}">${escapeHtml(plant.notes || "")}</textarea>
@@ -451,6 +566,13 @@ function bindEvents() {
   document.querySelector("#removeKey")?.addEventListener("click", removeApiKey);
   document.querySelector("#toggleKey")?.addEventListener("click", toggleKeyVisibility);
   document.querySelector("#testApiKey")?.addEventListener("click", testApiKey);
+  document.querySelector("#refreshWeather")?.addEventListener("click", () => refreshWeather());
+  document.querySelector("#saveWeatherLocation")?.addEventListener("click", saveWeatherLocation);
+  document.querySelector("#useCurrentLocation")?.addEventListener("click", useCurrentWeatherLocation);
+  document.querySelector("#useCurrentLocationCare")?.addEventListener("click", useCurrentWeatherLocation);
+  document.querySelector("#weatherLocation")?.addEventListener("input", (event) => {
+    state.weather.draftLocation = event.target.value;
+  });
 
   document.querySelectorAll("[data-water]").forEach((button) => {
     button.addEventListener("click", async (event) => {
@@ -487,8 +609,9 @@ function bindEvents() {
         const filtered = state.plants.filter((plant) => {
           if (!query) return true;
           const popular = (plant.gemini?.identificacao_basica?.nome_popular || "").toLowerCase();
+          const ontario = (plant.gemini?.identificacao_basica?.nome_popular_ontario_canada || "").toLowerCase();
           const scientific = (plant.gemini?.identificacao_basica?.nome_cientifico || "").toLowerCase();
-          return popular.includes(query) || scientific.includes(query);
+          return popular.includes(query) || ontario.includes(query) || scientific.includes(query);
         });
         grid.innerHTML = filtered.map(renderPlantCard).join("");
         // Re-bind open details modal clicks
@@ -634,6 +757,88 @@ async function testApiKey() {
   }
 }
 
+async function saveWeatherLocation() {
+  state.weather.status = "loading";
+  state.weather.message = "Buscando cidade...";
+  render();
+
+  try {
+    const location = await geocodeWeatherLocation(state.weather.draftLocation || DEFAULT_WEATHER_LOCATION.name);
+    state.weather.location = location;
+    state.weather.draftLocation = location.name;
+    await setSetting("weatherLocation", location);
+    await refreshWeather();
+    showToast(`Clima configurado para ${location.name}.`);
+  } catch (error) {
+    state.weather.status = "error";
+    state.weather.message = error.message || "Nao foi possivel salvar essa localizacao.";
+    render();
+  }
+}
+
+async function useCurrentWeatherLocation() {
+  if (!navigator.geolocation) {
+    state.weather.status = "error";
+    state.weather.message = "Geolocalizacao nao esta disponivel neste navegador.";
+    render();
+    return;
+  }
+
+  state.weather.status = "loading";
+  state.weather.message = "Pedindo permissao de localizacao...";
+  render();
+
+  navigator.geolocation.getCurrentPosition(
+    async (position) => {
+      const location = {
+        name: "Local atual em Ontario",
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        source: "geolocation"
+      };
+      state.weather.location = location;
+      state.weather.draftLocation = location.name;
+      await setSetting("weatherLocation", location);
+      await refreshWeather();
+      showToast("Clima atualizado pelo local atual.");
+    },
+    (error) => {
+      state.weather.status = "error";
+      state.weather.message = "Permissao negada. Voce pode salvar uma cidade em Ajustes.";
+      render();
+    },
+    { enableHighAccuracy: false, timeout: 10000, maximumAge: 1800000 }
+  );
+}
+
+async function refreshWeather({ silent = false } = {}) {
+  if (!silent) {
+    state.weather.status = "loading";
+    state.weather.message = "Atualizando previsao...";
+    render();
+  }
+
+  try {
+    const forecast = await fetchWeatherForecast(state.weather.location || DEFAULT_WEATHER_LOCATION);
+    state.weather.forecast = forecast;
+    state.weather.status = "ready";
+    state.weather.message = `Atualizado ${formatUpdatedAt(forecast.fetchedAt)}.`;
+    await setSetting("weatherForecast", forecast);
+  } catch (error) {
+    const cached = await getSetting("weatherForecast");
+    if (cached) {
+      state.weather.forecast = cached;
+      state.weather.status = "cached";
+      state.weather.message = "Sem conexao. Mostrando ultimo clima salvo.";
+    } else {
+      state.weather.status = "error";
+      state.weather.message = error.message || "Clima indisponivel agora.";
+    }
+  } finally {
+    render();
+  }
+}
+
 function toggleKeyVisibility() {
   const input = document.querySelector("#geminiApiKey");
   input.type = input.type === "password" ? "text" : "password";
@@ -657,6 +862,15 @@ function quickAction(tab, icon, title, text) {
   `;
 }
 
+function factCard(label, value) {
+  return `
+    <article>
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(value)}</strong>
+    </article>
+  `;
+}
+
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -667,11 +881,66 @@ function fileToBase64(file) {
 }
 
 function nameOf(plant) {
-  return plant.gemini?.identificacao_basica?.nome_popular || "Planta salva";
+  const info = plant.gemini?.identificacao_basica || {};
+  if ((!info.nome_popular || info.nome_popular === "Planta salva") && isPhalaenopsisPlant(plant)) {
+    return "Orquidea borboleta";
+  }
+  return info.nome_popular || info.nome_popular_ontario_canada || info.nome_comercial_canada || "Planta salva";
+}
+
+function isPhalaenopsisPlant(plant) {
+  const info = plant?.gemini?.identificacao_basica || {};
+  const haystack = [
+    info.nome_cientifico,
+    info.nome_popular,
+    info.nome_popular_ontario_canada,
+    info.nome_comercial_canada,
+    info.genero
+  ].join(" ").toLowerCase();
+  return haystack.includes("phalaenopsis") || haystack.includes("phallaenopsis");
 }
 
 function labelForModel(modelId) {
   return GEMINI_MODELS.find((model) => model.id === modelId)?.label || modelId;
+}
+
+function buildWeatherAdvice(forecast) {
+  if (!forecast) return ["Configure o clima para receber dicas de rega."];
+  const current = forecast.current || {};
+  const today = forecast.daily?.[0] || {};
+  const advice = [];
+
+  if (current.humidity !== undefined && current.humidity < 35) {
+    advice.push("Ar seco: orquideas e tropicais podem precisar de bandeja de umidade ou borrifacao ao redor.");
+  }
+  if (today.precipitationProbability !== undefined && today.precipitationProbability >= 60) {
+    advice.push("Dia umido/chuvoso: confira o substrato antes de regar e evite excesso de agua.");
+  }
+  if (current.temperature !== undefined && current.temperature < 10) {
+    advice.push("Frio em Ontario: mantenha vasos longe de janelas frias e reduza rega.");
+  }
+  if (current.temperature !== undefined && current.temperature >= 26) {
+    advice.push("Calor: plantas em vaso podem secar mais rapido; cheque o substrato com o dedo.");
+  }
+  if (today.sunshineHours !== undefined && today.sunshineHours !== null && today.sunshineHours < 3) {
+    advice.push("Poucas horas de sol: aproxime plantas de luz indireta brilhante, sem encostar no vidro frio.");
+  }
+
+  if (!advice.length) {
+    advice.push("Clima equilibrado: mantenha a rotina e regue apenas se o substrato pedir.");
+  }
+
+  return advice.slice(0, 3);
+}
+
+function formatNumber(value) {
+  if (value === undefined || value === null || Number.isNaN(Number(value))) return "--";
+  return Math.round(Number(value));
+}
+
+function formatUpdatedAt(value) {
+  if (!value) return "agora";
+  return new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit" }).format(new Date(value));
 }
 
 function showToast(message) {
@@ -789,6 +1058,10 @@ function sunIcon() {
 
 function thermoIcon() {
   return icon('<path d="M14 14.8V5a2 2 0 0 0-4 0v9.8a4 4 0 1 0 4 0Z"/>');
+}
+
+function cloudIcon() {
+  return icon('<path d="M17.5 19H8a5 5 0 1 1 1.1-9.9 6 6 0 0 1 11.6 2.2A4 4 0 0 1 17.5 19Z"/>');
 }
 
 function eyeIcon() {
