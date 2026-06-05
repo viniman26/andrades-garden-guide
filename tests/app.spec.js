@@ -40,7 +40,7 @@ test.describe("Andrade's Garden Guide", () => {
 
     // Navigate to Cuidados
     await page.click('nav.bottom-nav button[aria-label="Cuidados"]');
-    await expect(page.locator('text=Projete a rega das suas plantas para os proximos 7 dias.')).toBeVisible();
+    await expect(page.locator('text=Projete a rega das suas plantas para os proximos 14 dias.')).toBeVisible();
 
     // Navigate to Ajustes (Configuracoes)
     await page.click('nav.bottom-nav button[aria-label="Ajustes"]');

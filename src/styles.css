@@ -272,7 +272,7 @@ svg {
 .content-scroll {
   flex: 1;
   overflow-y: auto;
-  padding: 0 18px 96px; /* Evita que o rodapé fixo esconda o último card das páginas */
+  padding: 0 18px 110px; /* Evita que o rodapé fixo esconda o último card das páginas */
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
 }
@@ -763,12 +763,12 @@ select {
   width: 100%;
   max-width: 480px; /* Alinha com a largura máxima do app no desktop */
   z-index: 40;
-  height: 84px;
+  height: calc(64px + env(safe-area-inset-bottom, 0px));
   box-sizing: border-box;
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   place-items: center;
-  padding-bottom: env(safe-area-inset-bottom, 12px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
   border-top: 1px solid var(--border);
   border-radius: 0;
   background: var(--surface-strong);
@@ -805,7 +805,7 @@ select {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 20;
+  z-index: 100; /* Garante que o modal fique por cima do menu inferior fixed (z-index: 40) */
   display: grid;
   place-items: end center;
   padding: 12px;
@@ -841,7 +841,7 @@ select {
 .modal-body {
   max-height: calc(92dvh - 230px);
   overflow: auto;
-  padding: 18px;
+  padding: 18px 18px 48px; /* Preenchimento inferior extra para garantir visibilidade do botão Excluir */
 }
 
 .modal-body h1 {
@@ -1017,6 +1017,7 @@ textarea {
 /* Calendar and Care Schedule UI */
 .calendar-week {
   display: flex;
+  align-items: center; /* Alinha verticalmente os cartões do calendário */
   gap: 10px;
   overflow-x: auto;
   padding: 4px 4px 14px;
@@ -1152,7 +1153,7 @@ textarea {
 
   .bottom-nav {
     border-radius: 0;
-    height: 84px;
-    padding-bottom: 6px;
+    height: 64px;
+    padding-bottom: 0;
   }
 }

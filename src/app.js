@@ -225,7 +225,7 @@ function renderCare() {
     <section class="section-title">
       <div>
         <h1>Cuidados</h1>
-        <p>Projete a rega das suas plantas para os proximos 7 dias.</p>
+        <p>Projete a rega das suas plantas para os proximos 14 dias.</p>
       </div>
     </section>
 
@@ -706,7 +706,7 @@ function getWeeklyDays() {
   const days = [];
   const now = new Date();
 
-  for (let d = 0; d < 7; d++) {
+  for (let d = 0; d < 14; d++) {
     const targetDate = new Date(now.getTime() + d * 24 * 60 * 60 * 1000);
     const dayNum = targetDate.getDate();
     let name = weekdayNames[targetDate.getDay()];
