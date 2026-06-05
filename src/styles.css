@@ -21,18 +21,24 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-html,
-body {
+html {
   width: 100%;
-  height: 100%;
+  height: 100dvh;
   margin: 0;
   overflow: hidden;
-  position: fixed;
-  inset: 0;
   overscroll-behavior: none;
   touch-action: manipulation;
   background: #0f2f23;
+}
+
+body {
+  width: 100%;
+  height: 100dvh;
+  margin: 0;
+  overflow: hidden;
+  background: #f5efe3; /* Cream color matching the bottom navigation bar */
   color: var(--text);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 button,
@@ -68,7 +74,7 @@ svg {
   background:
     radial-gradient(circle at 50% 42%, rgba(255, 250, 229, 0.42), transparent 28%),
     linear-gradient(180deg, rgba(13, 55, 35, 0.3), rgba(8, 32, 23, 0.88)),
-    url("/assets/wallpaper.png") center / cover;
+    url("../assets/wallpaper.png") center / cover;
   transition:
     opacity 580ms ease,
     transform 580ms ease,
@@ -180,9 +186,7 @@ svg {
 }
 
 .app-shell {
-  position: fixed;
-  inset: 0;
-  height: 100%;
+  height: 100dvh;
   width: 100%;
   display: flex;
   justify-content: center;
@@ -193,7 +197,7 @@ svg {
 
 .phone-frame {
   width: 100vw;
-  height: 100%;
+  height: 100dvh;
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -211,7 +215,7 @@ svg {
   flex-direction: column;
   background:
     linear-gradient(180deg, rgba(12, 41, 27, 0.45), rgba(12, 41, 27, 0.8)),
-    url("/assets/wallpaper.png") center / cover;
+    url("../assets/wallpaper.png") center / cover;
 }
 
 .screen::before {
@@ -268,10 +272,10 @@ svg {
 .content-scroll {
   flex: 1;
   overflow-y: auto;
-  padding: 0 18px 20px;
+  padding: 0 18px 96px; /* Evita que o rodapé fixo esconda o último card das páginas */
   scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
 }
-
 .content-scroll::-webkit-scrollbar {
   display: none;
 }
@@ -752,16 +756,24 @@ select {
 }
 
 .bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
   width: 100%;
-  height: calc(68px + env(safe-area-inset-bottom));
+  max-width: 480px; /* Alinha com a largura máxima do app no desktop */
+  z-index: 40;
+  height: 84px;
+  box-sizing: border-box;
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: 4px;
-  padding: 6px 12px calc(6px + env(safe-area-inset-bottom));
+  place-items: center;
+  padding-bottom: env(safe-area-inset-bottom, 12px);
   border-top: 1px solid var(--border);
   border-radius: 0;
   background: var(--surface-strong);
   backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   box-shadow: 0 -4px 20px rgba(15, 42, 26, 0.08);
 }
 
@@ -1103,41 +1115,44 @@ textarea {
   .app-shell {
     background:
       linear-gradient(180deg, rgba(8, 41, 27, 0.15), rgba(8, 41, 27, 0.65)),
-      url("/assets/wallpaper.png") center / cover fixed;
-    display: grid;
-    place-items: center;
-    position: fixed;
-    inset: 0;
-    height: 100%;
+      url("../assets/wallpaper.png") center / cover fixed;
+    display: flex;
+    justify-content: center;
+    align-items: stretch;
+    height: 100dvh;
     width: 100%;
     overflow: hidden;
   }
 
   .phone-frame {
-    width: min(100vw, 430px);
-    height: 100%;
-    max-height: 850px;
-    padding: 10px;
+    width: 100%;
+    max-width: 480px;
+    height: 100dvh;
+    padding: 0;
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
+    box-shadow: var(--shadow);
+    border-left: 1px solid rgba(255, 255, 255, 0.15);
+    border-right: 1px solid rgba(255, 255, 255, 0.15);
   }
 
   .screen {
-    border: 1px solid rgba(255, 255, 255, 0.34);
-    border-radius: 34px;
-    box-shadow: var(--shadow);
+    flex: 1;
     height: 100%;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
   }
 
   .topbar {
-    height: 86px;
+    height: 74px;
     padding-top: 12px;
   }
 
   .bottom-nav {
-    height: 68px;
+    border-radius: 0;
+    height: 84px;
     padding-bottom: 6px;
-    border-radius: 20px 20px 0 0;
   }
 }

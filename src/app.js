@@ -97,7 +97,7 @@ function renderHeader() {
   return `
     <header class="topbar">
       <button class="brand-button" data-tab="home" aria-label="Ir para inicio">
-        <img src="/assets/logo.png" alt="Andrade's Garden Guide" class="brand-logo" />
+        <img src="./assets/logo.png" alt="Andrade's Garden Guide" class="brand-logo" />
       </button>
       <button class="icon-button" data-tab="settings" aria-label="Abrir configuracoes">${gearIcon()}</button>
     </header>
